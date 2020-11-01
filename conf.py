@@ -25,7 +25,7 @@ author = "Turbulenz Limited"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["recommonmark", "sphinx_markdown_tables", 'sphinx.ext.autosectionlabel']
+extensions = ["recommonmark", "sphinx_markdown_tables", "sphinx.ext.autosectionlabel", "sphinx.ext.githubpages"]
 autosectionlabel_prefix_document = True
 autosectionlabel_maxdepth = 2
 
@@ -49,4 +49,4 @@ html_theme_options = {"page_width": "100%"}
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-html_css_files = ['css/custom.css']
+html_css_files = ["css/custom.css"]
