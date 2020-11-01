@@ -1,0 +1,308 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HTTP Beacons API &#8212; Boundless Modding  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="HTTP LOD0 Map API" href="http-lod0.html" />
+    <link rel="prev" title="Boundless’ Modding documentation!" href="../index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="http-beacons-api">
+<h1>HTTP Beacons API<a class="headerlink" href="#http-beacons-api" title="Permalink to this headline">¶</a></h1>
+<p>The Beacons HTTP API allows an external user with a blessed key to query the world servers directly to query details of all beacons on the world and a “beacon map” of the world returning GZIP compressed little-endian binary packed data. Each world has a unique base API URL that can be requested from the universe discovery server. The API URLs will rarely change and are safe to cache for 24 hours. The HTTP Beacons route should be appended to the world API URLs to request the map per world.</p>
+<div class="section" id="how-to-query-the-per-world-base-api-urls">
+<h2>How to query the per world base API URLs<a class="headerlink" href="#how-to-query-the-per-world-base-api-urls" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>See <a class="reference internal" href="http-shopping.html#how-to-query-the-per-world-base-api-urls"><span class="std std-ref">How to query the per world base API URLs</span></a></p></li>
+</ul>
+</div>
+<div class="section" id="how-to-query-the-http-beacons-api">
+<h2>How to query the HTTP Beacons API<a class="headerlink" href="#how-to-query-the-http-beacons-api" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">GET</span></code> request route is: <code class="docutils literal notranslate"><span class="pre">/api/beacons</span></code></p></li>
+<li><p>The request should include a header with your API key: <code class="docutils literal notranslate"><span class="pre">Boundless-API-Key</span></code>. There are different keys for the Testing and Live servers.</p></li>
+<li><p>The response is streamed back with <code class="docutils literal notranslate"><span class="pre">Chunked</span> <span class="pre">Transfer</span> <span class="pre">Encoding</span></code> returning a <code class="docutils literal notranslate"><span class="pre">GZIP</span></code> encoded binary data pack (<code class="docutils literal notranslate"><span class="pre">gunzip</span></code> on Linux/macOS or some other utility on Windows OS).</p></li>
+<li><p>The response will run so as not to stall the server in any way, but will generally take less than 1 second to process.</p></li>
+<li><p>The returned beacon details may not be fully consistent if changes occur during processing but the data will be fully self consistent; it will not reference beacons whose details are not listed in the response.</p></li>
+</ul>
+</div>
+<div class="section" id="error-codes">
+<h2>Error Codes<a class="headerlink" href="#error-codes" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>a <strong>403</strong> status will be returned if the API key was not acceptable.</p></li>
+<li><p>a <strong>503</strong> status will be returned if the server is not in an acceptable state (Is starting up, is shutting down or being terminated, or is in a locked state for sovereign/creative worlds).</p></li>
+<li><p>a <strong>503</strong> status will also be returned if another request for the beacons is ongoing; in this case the response will include a <code class="docutils literal notranslate"><span class="pre">Retry-After</span></code> header with an approximate time until the API will be available to use again; there is no enforced fair-use of the endpoint though if querying the Boundless MMO world servers you should not expect to see this kind of response as the data will be cached at a higher level so that you simply get the older version of the data in the meantime instead.</p></li>
+</ul>
+</div>
+<div class="section" id="how-to-decode-the-decompressed-binary-response">
+<h2>How to decode the decompressed binary response<a class="headerlink" href="#how-to-decode-the-decompressed-binary-response" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>u16     : number of beacons (may actually end up with less than this many beacons after full parse)
+u16     : world-size in terms of plots (width/height of the plot-map)
+[
+  u16   : zero (as in, literally a u16 with value 0); if this is not 0 then must exit the beacon-parsing loop now.
+  --  # if u16 was zero:
+  u8    : is this beacon a campfire? (1 or 0 value)
+  i16[3]: position of the beacon master console / campfire in block-coordinates
+  u8    : length of mayor-name string
+  char[]: name of the beacon&#39;s mayor (UTF8)
+  --  # if not a campfire:
+  u64   : beacon prestige                       [ assume 0 for campfires    ]
+  i8    : beacon compactness (-100 to 100)      [ doesnt apply to campfires ]
+  u32   : number of 3d plots in the beacon      [ assume 2 for campfires    ]
+  u32   : number of plot-columns in the beacon  [ assume 1 for campfires    ]
+  u8    : length of name string                 [ doesnt apply to campfires ]
+  char[]: name of the beacon (UTF8)             [ doesnt apply to campfires ]
+] * N (N &lt;= number of beacons)
+# if you got less beacons than you were expecting, then the last u16 parsed will match the number of beacons missing.
+#   this is an edge case due to asynchronous processing of the request if a beacon is deleted whilst processing the request
+#   as the processing will check the number of beacons to build the response header first.
+
+[
+  u16   : index of beacon for this plot-column of the world; if 0 then there is no beacon here
+          this indexes into the (1-indexed) list of beacons at the head of the response.
+  u8    : number of 3d plots in this column
+] * (world-size * world-size)
+# the map data ordering matches the Lod0 Map request image with runs across in rows of equal-z
+#   starting from the most negative plot coordinates
+</pre></div>
+</div>
+</div>
+<div class="section" id="example-requests">
+<h2>Example Requests<a class="headerlink" href="#example-requests" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># request the beacons data and ask curl to decompress it</span>
+curl --compressed -H <span class="s2">&quot;Boundless-API-Key: TESTING_KEY&quot;</span> https://gs-testing-euc1.playboundless.com/13/api/beacons --output testing.euc1_t0_0.beacons.bin
+</pre></div>
+</div>
+</div>
+<div class="section" id="example-response-parsing">
+<h2>Example Response Parsing<a class="headerlink" href="#example-response-parsing" title="Permalink to this headline">¶</a></h2>
+<p>Below is an example Python 3 script that will parse the decompressed beacons data response above.</p>
+<div class="highlight-python notranslate"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="kn">from</span> <span class="nn">argparse</span> <span class="kn">import</span> <span class="n">ArgumentParser</span><span class="p">,</span> <span class="n">FileType</span>
+<span class="kn">from</span> <span class="nn">struct</span> <span class="kn">import</span> <span class="n">unpack_from</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+
+<span class="n">parser</span> <span class="o">=</span> <span class="n">ArgumentParser</span><span class="p">()</span>
+<span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;binary&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;binary files to parse&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">FileType</span><span class="p">(</span><span class="s2">&quot;rb&quot;</span><span class="p">),</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;+&quot;</span><span class="p">,</span> <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;BIN&quot;</span><span class="p">)</span>
+<span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">binary</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">binary</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;# </span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">buffer</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+    <span class="n">index</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">num_beacons</span><span class="p">,</span> <span class="n">world_size</span> <span class="o">=</span> <span class="n">unpack_from</span><span class="p">(</span><span class="s2">&quot;&lt;HH&quot;</span><span class="p">,</span> <span class="n">buffer</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+    <span class="n">offset</span> <span class="o">+=</span> <span class="mi">4</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  &lt;=</span><span class="si">{</span><span class="n">num_beacons</span><span class="si">}</span><span class="s2"> beacons for world plot-size </span><span class="si">{</span><span class="n">world_size</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">beacon_names</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">beacon_index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_beacons</span><span class="p">):</span>
+        <span class="p">(</span><span class="n">skipped</span><span class="p">,)</span> <span class="o">=</span> <span class="n">unpack_from</span><span class="p">(</span><span class="s2">&quot;&lt;H&quot;</span><span class="p">,</span> <span class="n">buffer</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="n">offset</span> <span class="o">+=</span> <span class="mi">2</span>
+
+        <span class="k">if</span> <span class="n">skipped</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">num_beacons</span> <span class="o">-=</span> <span class="n">skipped</span>
+            <span class="k">break</span>
+
+        <span class="n">campfire</span><span class="p">,</span> <span class="n">pos_x</span><span class="p">,</span> <span class="n">pos_y</span><span class="p">,</span> <span class="n">pos_z</span><span class="p">,</span> <span class="n">mayor_name_len</span> <span class="o">=</span> <span class="n">unpack_from</span><span class="p">(</span><span class="s2">&quot;&lt;BhhhB&quot;</span><span class="p">,</span> <span class="n">buffer</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="n">offset</span> <span class="o">+=</span> <span class="mi">8</span>
+        <span class="p">(</span><span class="n">mayor_name</span><span class="p">,)</span> <span class="o">=</span> <span class="n">unpack_from</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">mayor_name_len</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">,</span> <span class="n">buffer</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="n">mayor_name</span> <span class="o">=</span> <span class="n">mayor_name</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+        <span class="n">offset</span> <span class="o">+=</span> <span class="n">mayor_name_len</span>
+
+        <span class="k">if</span> <span class="n">campfire</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  campfire #</span><span class="si">{</span><span class="n">beacon_index</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      position    : </span><span class="si">{</span><span class="o">-</span><span class="n">pos_z</span><span class="si">}</span><span class="s2">N </span><span class="si">{</span><span class="n">pos_x</span><span class="si">}</span><span class="s2">E Altitude: </span><span class="si">{</span><span class="n">pos_y</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      mayor-name  : </span><span class="si">{</span><span class="n">mayor_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">beacon_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;**Campfire&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">prestige</span><span class="p">,</span> <span class="n">compactness</span><span class="p">,</span> <span class="n">num_plots</span><span class="p">,</span> <span class="n">num_plot_columns</span><span class="p">,</span> <span class="n">name_len</span> <span class="o">=</span> <span class="n">unpack_from</span><span class="p">(</span><span class="s2">&quot;&lt;QbIIB&quot;</span><span class="p">,</span> <span class="n">buffer</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="mi">18</span>
+            <span class="p">(</span><span class="n">name</span><span class="p">,)</span> <span class="o">=</span> <span class="n">unpack_from</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">name_len</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">,</span> <span class="n">buffer</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="n">name_len</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  beacon   #</span><span class="si">{</span><span class="n">beacon_index</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      position    : </span><span class="si">{</span><span class="o">-</span><span class="n">pos_z</span><span class="si">}</span><span class="s2">N </span><span class="si">{</span><span class="n">pos_x</span><span class="si">}</span><span class="s2">E Altitude: </span><span class="si">{</span><span class="n">pos_y</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      name        : </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      mayor-name  : </span><span class="si">{</span><span class="n">mayor_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      prestige    : </span><span class="si">{</span><span class="n">prestige</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      compactness : </span><span class="si">{</span><span class="n">compactness</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      plots       : </span><span class="si">{</span><span class="n">num_plots</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      plot-columns: </span><span class="si">{</span><span class="n">num_plot_columns</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">beacon_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">world_size</span><span class="p">),</span> <span class="n">repeat</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+        <span class="n">beacon_index</span><span class="p">,</span> <span class="n">plot_count</span> <span class="o">=</span> <span class="n">unpack_from</span><span class="p">(</span><span class="s2">&quot;&lt;HB&quot;</span><span class="p">,</span> <span class="n">buffer</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="n">offset</span> <span class="o">+=</span> <span class="mi">3</span>
+        <span class="k">if</span> <span class="n">beacon_index</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  (</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">z</span><span class="si">}</span><span class="s2">) : #</span><span class="si">{</span><span class="n">beacon_index</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">beacon_names</span><span class="p">[</span><span class="n">beacon_index</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> w/ </span><span class="si">{</span><span class="n">plot_count</span><span class="si">}</span><span class="s2"> plots&quot;</span><span class="p">)</span>
+</pre></div>
+</td></tr></table></div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Boundless Modding</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">HTTP Beacons API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="http-lod0.html">HTTP LOD0 Map API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="http-shopping.html">HTTP Shopping API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="server-scripting.html">Server Scripting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../index.html" title="previous chapter">Boundless’ Modding documentation!</a></li>
+      <li>Next: <a href="http-lod0.html" title="next chapter">HTTP LOD0 Map API</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2013-2020, Wonderstruck, Turbulenz Limited.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.2.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/modding/http-beacons.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
