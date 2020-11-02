@@ -51,7 +51,7 @@
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Testing and Live require <code class="docutils literal notranslate"><span class="pre">https</span></code> secure connections, whilst Creative only requires <code class="docutils literal notranslate"><span class="pre">http</span></code> connections.</p>
+<p>Testing and Live require <code class="docutils literal notranslate"><span class="pre">https</span></code> secure connections, whilst Local-sandbox only requires <code class="docutils literal notranslate"><span class="pre">http</span></code> connections.</p>
 </div>
 </div>
 <div class="section" id="how-to-query-the-http-shopping-api">
@@ -67,6 +67,17 @@
 <li><p>Validation regex: <code class="docutils literal notranslate"><span class="pre">&quot;^/api/shopping/(B|S)/([0-9]+)$&quot;</span></code></p></li>
 <li><p>The request should include a header with your API key: <code class="docutils literal notranslate"><span class="pre">Boundless-API-Key</span></code>. There are different keys for the Testing and Live servers.</p></li>
 <li><p>The response is a little-endian binary object.</p></li>
+</ul>
+</div>
+<div class="section" id="rate-limiting">
+<h2>Rate Limiting<a class="headerlink" href="#rate-limiting" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Requests which do not hit the cache and reach the game server are rate limited to balance across users and across the in-client shopping queuries made from Knowldege; this rate-limiting has only one rule that users should follow:
+* Each API key is permitted to have 1 request in-flight that hits a given game server: any attempt to run concurrent requests will return <code class="docutils literal notranslate"><span class="pre">429</span></code> responses.</p></li>
+<li><p>Any other request will either return an error state due to invalid arguments or server-state (starting-up, shutting-down, locked, not a public sovereign world..), or will return a <code class="docutils literal notranslate"><span class="pre">200</span></code> with the full response data.</p></li>
+<li><p>Rate limiting beyond the strict one-in-flight request will generally not apply unless there are many users (thousands) hitting the http endpoint concurrently; rate-limiting is handled by the server queueing incoming responses so that your response simply takes longer to come back if serving higher-priority users first - there is no need to handle delaying requests or retrying on the user-side.</p></li>
+<li><p>The shopping responses are also cached so the response may come back directly from the cache and not hit the game server at all further reducing the effects of rate-limiting.</p></li>
+<li><p>Responses will be returned up to a rate of 1 response per second for each api-key used to further ensure no hit to server performance, but you do not need to delay your next request.</p></li>
 </ul>
 </div>
 <div class="section" id="how-to-decode-the-binary-response">

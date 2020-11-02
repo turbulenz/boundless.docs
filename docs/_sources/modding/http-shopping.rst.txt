@@ -17,7 +17,7 @@ How to query the per world base API URLs
 
 .. note::
 
-  Testing and Live require ``https`` secure connections, whilst Creative only requires ``http`` connections.
+  Testing and Live require ``https`` secure connections, whilst Local-sandbox only requires ``http`` connections.
 
 How to query the HTTP Shopping API
 ----------------------------------
@@ -31,6 +31,16 @@ How to query the HTTP Shopping API
 * Validation regex: ``"^/api/shopping/(B|S)/([0-9]+)$"``
 * The request should include a header with your API key: ``Boundless-API-Key``. There are different keys for the Testing and Live servers.
 * The response is a little-endian binary object.
+
+Rate Limiting
+-------------
+
+* Requests which do not hit the cache and reach the game server are rate limited to balance across users and across the in-client shopping queuries made from Knowldege; this rate-limiting has only one rule that users should follow:
+  * Each API key is permitted to have 1 request in-flight that hits a given game server: any attempt to run concurrent requests will return ``429`` responses.
+* Any other request will either return an error state due to invalid arguments or server-state (starting-up, shutting-down, locked, not a public sovereign world..), or will return a ``200`` with the full response data.
+* Rate limiting beyond the strict one-in-flight request will generally not apply unless there are many users (thousands) hitting the http endpoint concurrently; rate-limiting is handled by the server queueing incoming responses so that your response simply takes longer to come back if serving higher-priority users first - there is no need to handle delaying requests or retrying on the user-side.
+* The shopping responses are also cached so the response may come back directly from the cache and not hit the game server at all further reducing the effects of rate-limiting.
+* Responses will be returned up to a rate of 1 response per second for each api-key used to further ensure no hit to server performance, but you do not need to delay your next request.
 
 How to decode the binary response
 ---------------------------------
