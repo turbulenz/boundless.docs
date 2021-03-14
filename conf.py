@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 project = "Boundless Modding"
-copyright = "2013-2020, Wonderstruck, Turbulenz Limited"
+copyright = "2013-2021, Wonderstruck, Turbulenz Limited"
 author = "Turbulenz Limited"
 
 # -- General configuration ---------------------------------------------------
